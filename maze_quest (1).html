@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MAZE QUEST 🌿</title>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ─── Reset ───────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0e1a0e;
+  --panel:    #132013;
+  --border:   #1e3a1e;
+  --leaf1:    #1a3d1a;
+  --leaf2:    #0f2a0f;
+  --neon-g:   #39ff14;
+  --neon-y:   #ffe500;
+  --neon-p:   #ff3de8;
+  --neon-b:   #00e5ff;
+  --neon-o:   #ff8c00;
+  --wall:     #1c3a1c;
+  --wall-hi:  #2a5a2a;
+  --path:     #0a160a;
+  --text:     #d4f0d4;
+  --text-dim: #4a7a4a;
+  --player:   #ffe500;
+  --ai-bfs:   #00e5ff;
+  --ai-dfs:   #ff3de8;
+  --visited-bfs: rgba(0,229,255,.18);
+  --visited-dfs: rgba(255,61,232,.18);
+  --trail-p:  rgba(255,229,0,.25);
+  --coin:     #ffd700;
+  --trap:     #ff4444;
+  --cell: 26px;
+}
+
+html, body { height: 100%; background: var(--bg); color: var(--text);
+             font-family: 'Nunito', sans-serif; overflow: hidden; }
+
+/* Animated jungle vines background */
+body::before {
+  content:'';
+  position:fixed; inset:0;
+  background:
+    radial-gradient(ellipse 60% 40% at 15% 20%, rgba(57,255,20,.04) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 60% at 85% 80%, rgba(0,229,255,.04) 0%, transparent 60%),
+    radial-gradient(ellipse 30% 30% at 50% 50%, rgba(255,229,0,.02) 0%, transparent 70%);
+  pointer-events:none; z-index:0;
+}
+
+/* ─── Layout ──────────────────────────────────────────────────────────── */
+#app { display:flex; height:100vh; position:relative; z-index:1; }
+
+/* ─── Left Panel ──────────────────────────────────────────────────────── */
+#panel {
+  width:230px; min-width:230px;
+  background:var(--panel);
+  border-right:2px solid var(--border);
+  display:flex; flex-direction:column;
+  padding:16px 14px; gap:2px;
+  overflow-y:auto; overflow-x:hidden;
+}
+#panel::-webkit-scrollbar{width:3px;}
+#panel::-webkit-scrollbar-thumb{background:var(--border);}
+
+.logo {
+  font-family:'Fredoka One',cursive;
+  font-size:26px;
+  background:linear-gradient(135deg,var(--neon-g),var(--neon-y),var(--neon-g));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 8px rgba(57,255,20,.5));
+  line-height:1; margin-bottom:4px;
+}
+.logo-sub {
+  font-size:9px; letter-spacing:.18em;
+  color:var(--text-dim); text-transform:uppercase; margin-bottom:14px;
+}
+
+/* Score bar */
+#scorebar {
+  background:#0a140a;
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:10px 12px;
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:6px; margin-bottom:12px;
+}
+.score-item { text-align:center; }
+.score-val {
+  font-family:'Fredoka One',cursive;
+  font-size:22px; line-height:1;
+  color:var(--neon-y);
+  text-shadow:0 0 10px rgba(255,229,0,.6);
+}
+.score-lbl { font-size:9px; color:var(--text-dim); letter-spacing:.1em; margin-top:1px; }
+
+/* Timer bar */
+#timer-wrap { margin-bottom:10px; }
+#timer-bar-bg {
+  height:8px; background:#0a140a; border-radius:4px;
+  border:1px solid var(--border); overflow:hidden;
+}
+#timer-bar {
+  height:100%;
+  background:linear-gradient(90deg, var(--neon-g), var(--neon-y));
+  border-radius:4px; width:100%;
+  transition:width .5s linear, background .5s;
+}
+#timer-text {
+  text-align:center; font-size:12px; color:var(--neon-g);
+  margin-bottom:3px; font-weight:700;
+  text-shadow:0 0 6px rgba(57,255,20,.5);
+}
+
+.sec-label {
+  font-size:9px; letter-spacing:.18em; color:var(--text-dim);
+  text-transform:uppercase; margin:10px 0 5px;
+}
+
+/* Mode tabs */
+.mode-tabs { display:flex; gap:4px; margin-bottom:6px; }
+.mode-tab {
+  flex:1; padding:6px 4px; font-family:'Fredoka One',cursive;
+  font-size:12px; border-radius:8px; cursor:pointer;
+  border:2px solid var(--border); background:transparent;
+  color:var(--text-dim); transition:all .15s; text-align:center;
+}
+.mode-tab:hover { border-color:var(--neon-g); color:var(--text); }
+.mode-tab.active {
+  background:linear-gradient(135deg,#1a3d0a,#0f2a0a);
+  border-color:var(--neon-g); color:var(--neon-g);
+  box-shadow:0 0 10px rgba(57,255,20,.25);
+}
+
+/* Algo tabs */
+.algo-tabs { display:flex; gap:4px; margin-bottom:6px; }
+.algo-tab {
+  flex:1; padding:5px 3px; font-size:11px; font-weight:700;
+  border-radius:7px; cursor:pointer;
+  border:2px solid var(--border); background:transparent;
+  color:var(--text-dim); transition:all .15s; text-align:center;
+}
+.algo-tab.active-bfs { border-color:var(--ai-bfs); color:var(--ai-bfs); background:rgba(0,229,255,.08); }
+.algo-tab.active-dfs { border-color:var(--ai-dfs); color:var(--ai-dfs); background:rgba(255,61,232,.08); }
+
+/* Difficulty */
+.diff-row { display:flex; gap:4px; margin-bottom:6px; }
+.diff-btn {
+  flex:1; padding:5px; font-size:10px; font-weight:800;
+  border-radius:7px; cursor:pointer;
+  border:2px solid var(--border); background:transparent; color:var(--text-dim);
+  transition:all .15s;
+}
+.diff-btn:hover { border-color:var(--neon-y); color:var(--neon-y); }
+.diff-btn.active { border-color:var(--neon-o); color:var(--neon-o); background:rgba(255,140,0,.1); }
+
+/* Speed */
+.speed-row { display:flex; align-items:center; gap:6px; margin-bottom:8px; }
+.speed-lbl { font-size:9px; color:var(--text-dim); }
+input[type=range] {
+  flex:1; -webkit-appearance:none; height:4px;
+  background:var(--border); border-radius:2px; outline:none; cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+  background:var(--neon-g); box-shadow:0 0 6px rgba(57,255,20,.6); cursor:pointer;
+}
+
+/* Big buttons */
+.big-btn {
+  width:100%; padding:10px; font-family:'Fredoka One',cursive;
+  font-size:15px; border-radius:10px; cursor:pointer;
+  border:2px solid; transition:all .15s; margin-bottom:5px; letter-spacing:.04em;
+}
+.btn-play {
+  background:linear-gradient(135deg,#1d4a00,#0d2800);
+  border-color:var(--neon-g); color:var(--neon-g);
+}
+.btn-play:hover { box-shadow:0 0 16px rgba(57,255,20,.4); transform:translateY(-1px); }
+.btn-gen {
+  background:linear-gradient(135deg,#2a1a00,#1a0d00);
+  border-color:var(--neon-o); color:var(--neon-o);
+}
+.btn-gen:hover { box-shadow:0 0 16px rgba(255,140,0,.4); transform:translateY(-1px); }
+.btn-stop {
+  background:transparent; border-color:#444; color:#888;
+}
+.btn-stop:hover { border-color:var(--trap); color:var(--trap); }
+
+/* Key hints */
+.key-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:3px; margin-bottom:8px;
+}
+.key-item {
+  background:#0a140a; border:1px solid var(--border);
+  border-radius:5px; padding:4px 6px;
+  font-size:9px; color:var(--text-dim);
+}
+.key-item kbd {
+  display:inline-block; background:var(--leaf1);
+  border:1px solid var(--wall-hi); border-radius:3px;
+  padding:1px 4px; font-size:9px; color:var(--neon-y);
+  font-family:'Nunito',sans-serif; margin-right:3px;
+}
+
+/* Legend */
+.legend { display:flex; flex-direction:column; gap:4px; }
+.leg { display:flex; align-items:center; gap:7px; font-size:10px; color:var(--text-dim); }
+.swatch { width:12px; height:12px; border-radius:3px; flex-shrink:0; }
+
+.div { height:1px; background:var(--border); margin:8px 0; }
+
+/* ─── Canvas area ─────────────────────────────────────────────────────── */
+#canvas-wrap {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  position:relative; overflow:hidden;
+}
+
+/* floating leaves */
+.leaf {
+  position:absolute; font-size:20px; opacity:.15;
+  animation:float linear infinite; pointer-events:none;
+}
+@keyframes float {
+  0%   { transform:translateY(110vh) rotate(0deg); opacity:.1; }
+  50%  { opacity:.2; }
+  100% { transform:translateY(-10vh) rotate(360deg); opacity:.05; }
+}
+
+#maze-canvas {
+  display:block; cursor:crosshair;
+  border-radius:6px;
+  border:2px solid var(--wall-hi);
+  box-shadow:0 0 0 1px rgba(57,255,20,.1), 0 0 40px rgba(57,255,20,.08);
+  image-rendering:pixelated;
+}
+
+/* Overlay for game messages */
+#overlay {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  background:rgba(10,22,10,.88);
+  border-radius:6px;
+  opacity:0; pointer-events:none;
+  transition:opacity .3s;
+  backdrop-filter:blur(4px);
+}
+#overlay.show { opacity:1; pointer-events:all; }
+#overlay-title {
+  font-family:'Fredoka One',cursive;
+  font-size:42px; margin-bottom:8px; line-height:1;
+  background:linear-gradient(135deg,var(--neon-g),var(--neon-y));
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  filter:drop-shadow(0 0 12px rgba(57,255,20,.6));
+}
+#overlay-sub { font-size:15px; color:var(--text-dim); margin-bottom:20px; text-align:center; }
+#overlay-btn {
+  font-family:'Fredoka One',cursive; font-size:18px;
+  padding:12px 36px; border-radius:12px; cursor:pointer;
+  background:linear-gradient(135deg,#1d4a00,#0d2800);
+  border:2px solid var(--neon-g); color:var(--neon-g);
+  transition:all .15s;
+}
+#overlay-btn:hover { box-shadow:0 0 20px rgba(57,255,20,.5); transform:scale(1.04); }
+
+/* Particle canvas (fx) */
+#fx-canvas {
+  position:absolute; inset:0; pointer-events:none;
+  border-radius:6px;
+}
+
+/* Toast */
+#toast {
+  position:absolute; top:16px; left:50%;
+  transform:translateX(-50%) translateY(-60px);
+  background:var(--neon-y); color:#000;
+  font-family:'Fredoka One',cursive; font-size:15px;
+  padding:8px 20px; border-radius:20px;
+  box-shadow:0 4px 20px rgba(255,229,0,.5);
+  transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+  z-index:100; white-space:nowrap;
+  pointer-events:none;
+}
+#toast.show { transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── Panel ─────────────────────────────────────────────────────────── -->
+<div id="panel">
+  <div class="logo">🌿 MAZE<br>QUEST</div>
+  <div class="logo-sub">Find your path through the jungle</div>
+
+  <!-- Score -->
+  <div id="scorebar">
+    <div class="score-item">
+      <div class="score-val" id="sc-score">0</div>
+      <div class="score-lbl">⭐ SCORE</div>
+    </div>
+    <div class="score-item">
+      <div class="score-val" id="sc-best" style="color:var(--neon-p)">0</div>
+      <div class="score-lbl">🏆 BEST</div>
+    </div>
+    <div class="score-item">
+      <div class="score-val" id="sc-moves" style="color:var(--neon-b)">0</div>
+      <div class="score-lbl">👣 MOVES</div>
+    </div>
+    <div class="score-item">
+      <div class="score-val" id="sc-coins" style="color:var(--coin)">0</div>
+      <div class="score-lbl">🪙 COINS</div>
+    </div>
+  </div>
+
+  <!-- Timer -->
+  <div id="timer-wrap">
+    <div id="timer-text">⏱ 60s</div>
+    <div id="timer-bar-bg"><div id="timer-bar"></div></div>
+  </div>
+
+  <!-- Mode -->
+  <div class="sec-label">Mode</div>
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tab-play"  onclick="setMode('play')">🎮 Play</button>
+    <button class="mode-tab"        id="tab-build" onclick="setMode('build')">🔨 Build</button>
+    <button class="mode-tab"        id="tab-race"  onclick="setMode('race')">🤖 Race AI</button>
+  </div>
+
+  <!-- AI Algo (race mode) -->
+  <div id="algo-section">
+    <div class="sec-label">AI Algorithm</div>
+    <div class="algo-tabs">
+      <button class="algo-tab active-bfs" id="atab-bfs" onclick="setAlgo('bfs')">🔵 BFS</button>
+      <button class="algo-tab"            id="atab-dfs" onclick="setAlgo('dfs')">🟣 DFS</button>
+      <button class="algo-tab"            id="atab-both" onclick="setAlgo('both')">⚡ Both</button>
+    </div>
+  </div>
+
+  <!-- Difficulty -->
+  <div class="sec-label">Difficulty</div>
+  <div class="diff-row">
+    <button class="diff-btn active" id="diff-easy"   onclick="setDiff('easy')">🌱 Easy</button>
+    <button class="diff-btn"        id="diff-medium" onclick="setDiff('medium')">🌿 Med</button>
+    <button class="diff-btn"        id="diff-hard"   onclick="setDiff('hard')">🌵 Hard</button>
+  </div>
+
+  <!-- Buttons -->
+  <button class="big-btn btn-play"  onclick="startGame()">▶ START GAME</button>
+  <button class="big-btn btn-gen"   onclick="generateMaze()">🎲 NEW MAZE</button>
+  <button class="big-btn btn-stop"  onclick="stopAll()">⏹ STOP</button>
+
+  <!-- AI Speed (race mode) -->
+  <div id="speed-section">
+    <div class="sec-label">AI Speed</div>
+    <div class="speed-row">
+      <span class="speed-lbl">Slow</span>
+      <input type="range" id="speed" min="5" max="120" value="60">
+      <span class="speed-lbl">Fast</span>
+    </div>
+  </div>
+
+  <!-- Key hints -->
+  <div class="sec-label">Controls</div>
+  <div class="key-grid">
+    <div class="key-item"><kbd>↑↓←→</kbd>Move</div>
+    <div class="key-item"><kbd>WASD</kbd>Also move</div>
+    <div class="key-item"><kbd>R</kbd>New maze</div>
+    <div class="key-item"><kbd>Space</kbd>Start</div>
+  </div>
+
+  <div class="div"></div>
+
+  <!-- Legend -->
+  <div class="sec-label">Legend</div>
+  <div class="legend">
+    <div class="leg"><div class="swatch" style="background:var(--neon-y)"></div>🐸 You</div>
+    <div class="leg"><div class="swatch" style="background:#00cc44"></div>🌟 Exit</div>
+    <div class="leg"><div class="swatch" style="background:var(--coin)"></div>🪙 Coin (+10pts)</div>
+    <div class="leg"><div class="swatch" style="background:var(--trap)"></div>💀 Trap (-15pts)</div>
+    <div class="leg"><div class="swatch" style="background:var(--ai-bfs)"></div>🔵 BFS AI</div>
+    <div class="leg"><div class="swatch" style="background:var(--ai-dfs)"></div>🟣 DFS AI</div>
+  </div>
+</div>
+
+<!-- ── Canvas area ─────────────────────────────────────────────────── -->
+<div id="canvas-wrap">
+  <canvas id="maze-canvas"></canvas>
+  <canvas id="fx-canvas"></canvas>
+  <div id="overlay" class="show">
+    <div id="overlay-title">🌿 MAZE QUEST</div>
+    <div id="overlay-sub">Navigate the jungle labyrinth<br>Collect coins · Dodge traps · Beat the AI!</div>
+    <button id="overlay-btn" onclick="startGame()">START ADVENTURE</button>
+  </div>
+  <div id="toast">+10 COIN!</div>
+</div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════
+// SOUND ENGINE  (Web Audio API — zero dependencies, works from file://)
+// ═══════════════════════════════════════════════════════════════════
+let _ac = null;
+function _getAC(){
+  if(!_ac) _ac = new (window.AudioContext||window.webkitAudioContext)();
+  // Resume if browser suspended it before a user gesture
+  if(_ac.state==='suspended') _ac.resume();
+  return _ac;
+}
+
+function _tone(freq, type, dur, vol=0.18){
+  try{
+    const ac=_getAC(), o=ac.createOscillator(), g=ac.createGain();
+    o.connect(g); g.connect(ac.destination);
+    o.type=type; o.frequency.setValueAtTime(freq, ac.currentTime);
+    g.gain.setValueAtTime(vol, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+dur);
+    o.start(ac.currentTime); o.stop(ac.currentTime+dur);
+  }catch(e){}
+}
+
+function _noise(dur, vol=0.10, bandFreq=500){
+  try{
+    const ac=_getAC();
+    const buf=ac.createBuffer(1,ac.sampleRate*dur,ac.sampleRate);
+    const d=buf.getChannelData(0);
+    for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+    const src=ac.createBufferSource(), g=ac.createGain(), f=ac.createBiquadFilter();
+    f.type='bandpass'; f.frequency.value=bandFreq; f.Q.value=1;
+    src.buffer=buf; src.connect(f); f.connect(g); g.connect(ac.destination);
+    g.gain.setValueAtTime(vol, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime+dur);
+    src.start(); src.stop(ac.currentTime+dur);
+  }catch(e){}
+}
+
+// 🧱 Wall placed — tactile click/thud
+function sfxWall(){
+  _noise(0.055, 0.13, 300);
+  _tone(70, 'square', 0.055, 0.09);
+}
+
+// 🤖 AI step — soft blip (called each agent tick)
+let _aiStepCount=0;
+function sfxAIMove(){
+  _aiStepCount++;
+  if(_aiStepCount%4!==0) return; // only every 4th step — not every tick
+  const base = algo==='bfs'?280:algo==='dfs'?220:320;
+  _tone(base + Math.min(_aiStepCount*0.3,100), 'sine', 0.035, 0.06);
+}
+
+// 🎉 Path / exit found — triumphant arpeggio
+function sfxPathFound(){
+  [523,659,784,1047].forEach((f,i)=>setTimeout(()=>_tone(f,'triangle',0.22,0.20),i*75));
+  setTimeout(()=>_tone(2093,'sine',0.35,0.08), 300);
+}
+
+// 💀 Trap hit — harsh buzz + low boom
+function sfxTrap(){
+  _tone(80,'sawtooth',0.18,0.25);
+  _noise(0.18,0.18,120);
+}
+
+// 🪙 Coin collected — bright ping
+function sfxCoin(){
+  _tone(1200,'sine',0.10,0.14);
+  setTimeout(()=>_tone(1600,'sine',0.08,0.10),40);
+}
+
+// ⏰ Time up — descending alarm
+function sfxTimeUp(){
+  [400,320,220,150].forEach((f,i)=>setTimeout(()=>_tone(f,'sawtooth',0.18,0.18),i*90));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════════
+const ROWS = 21, COLS = 21;   // odd numbers for perfect maze gen
+const CELL = 26, GAP = 1;
+const W = COLS*(CELL+GAP)+GAP, H = ROWS*(CELL+GAP)+GAP;
+
+// Colours
+const C = {
+  bg:'#080e08', grid:'#0f1a0f', wall:'#1c3a1c', wallHi:'#2a5a2a',
+  path:'#080e08',
+  start:'#00cc44', startGlow:'rgba(0,204,68,.5)',
+  player:'#ffe500', playerGlow:'rgba(255,229,0,.7)',
+  aiBFS:'#00e5ff',  aiBFSGlow:'rgba(0,229,255,.6)',
+  aiDFS:'#ff3de8',  aiDFSGlow:'rgba(255,61,232,.6)',
+  trailP:'rgba(255,229,0,.18)',
+  trailBFS:'rgba(0,229,255,.12)',
+  trailDFS:'rgba(255,61,232,.12)',
+  visitBFS:'rgba(0,229,255,.10)',
+  visitDFS:'rgba(255,61,232,.10)',
+  coin:'#ffd700', coinGlow:'rgba(255,215,0,.6)',
+  trap:'#ff2244', trapGlow:'rgba(255,34,68,.5)',
+};
+
+// ═══════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════
+let grid = [];          // 0=path 1=wall
+let coins = new Map();  // k->true
+let traps = new Map();  // k->true
+
+let gameMode = 'play';  // play | build | race
+let algo     = 'bfs';
+let diff     = 'easy';
+
+let player   = {r:1,c:1};
+let playerTrail = [];
+let aiB      = null;    // BFS agent
+let aiD      = null;    // DFS agent
+let exitCell = {r:ROWS-2, c:COLS-2};
+
+let score = 0, best = 0, moves = 0, coinsCollected = 0;
+let timerMax = 60, timerLeft = 60, timerInterval = null;
+let animTimer = null, animTimer2 = null;
+let running  = false;
+let buildDrag = null;
+
+// Particle system
+const particles = [];
+
+// ═══════════════════════════════════════════════════════════════════
+// CANVAS SETUP
+// ═══════════════════════════════════════════════════════════════════
+const canvas  = document.getElementById('maze-canvas');
+const fxCanvas= document.getElementById('fx-canvas');
+const ctx     = canvas.getContext('2d');
+const fxCtx   = fxCanvas.getContext('2d');
+
+function resizeCanvases() {
+  const wrap   = document.getElementById('canvas-wrap');
+  const maxW   = wrap.clientWidth  - 32;
+  const maxH   = wrap.clientHeight - 32;
+  const scale  = Math.min(maxW / W, maxH / H, 1.4);
+  const dw     = Math.floor(W * scale);
+  const dh     = Math.floor(H * scale);
+  canvas.style.width   = fxCanvas.style.width   = dw + 'px';
+  canvas.style.height  = fxCanvas.style.height  = dh + 'px';
+  fxCanvas.style.position = 'absolute';
+  fxCanvas.style.top  = canvas.offsetTop  + 'px';
+  fxCanvas.style.left = canvas.offsetLeft + 'px';
+}
+canvas.width = fxCanvas.width = W;
+canvas.height= fxCanvas.height= H;
+
+// ═══════════════════════════════════════════════════════════════════
+// KEY → cell
+// ═══════════════════════════════════════════════════════════════════
+const k  = (r,c) => r*COLS+c;
+const kr = n => [Math.floor(n/COLS), n%COLS];
+
+// ═══════════════════════════════════════════════════════════════════
+// MAZE GENERATION (Recursive Backtracker / DFS)
+// ═══════════════════════════════════════════════════════════════════
+function generateMaze() {
+  stopAll();
+  grid = Array.from({length:ROWS},()=>new Uint8Array(COLS).fill(1));
+
+  function carve(r,c){
+    grid[r][c]=0;
+    const dirs=[[0,2],[0,-2],[2,0],[-2,0]].sort(()=>Math.random()-.5);
+    for(const [dr,dc] of dirs){
+      const nr=r+dr, nc=c+dc;
+      if(nr>0&&nr<ROWS-1&&nc>0&&nc<COLS-1&&grid[nr][nc]===1){
+        grid[r+dr/2][c+dc/2]=0;
+        carve(nr,nc);
+      }
+    }
+  }
+  carve(1,1);
+
+  // Guarantee open entry/exit
+  grid[1][1]=0; grid[ROWS-2][COLS-2]=0;
+  exitCell={r:ROWS-2,c:COLS-2};
+
+  // Extra openings by difficulty
+  const extra = diff==='easy'?30:diff==='medium'?12:3;
+  for(let i=0;i<extra;i++){
+    const r=1+Math.floor(Math.random()*(ROWS-2));
+    const c=1+Math.floor(Math.random()*(COLS-2));
+    grid[r][c]=0;
+  }
+
+  spawnItems();
+  resetPlayer();
+  drawAll();
+  setStatus('🌿 Maze generated! Press START or Space.', '');
+}
+
+function spawnItems(){
+  coins.clear(); traps.clear();
+  const numCoins = diff==='easy'?12:diff==='medium'?8:5;
+  const numTraps = diff==='easy'?3 :diff==='medium'?6:10;
+  const open=[];
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++)
+    if(grid[r][c]===0 && !(r===1&&c===1) && !(r===exitCell.r&&c===exitCell.c))
+      open.push([r,c]);
+  open.sort(()=>Math.random()-.5);
+  open.slice(0,numCoins).forEach(([r,c])=>coins.set(k(r,c),true));
+  open.slice(numCoins,numCoins+numTraps).forEach(([r,c])=>traps.set(k(r,c),true));
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DRAW
+// ═══════════════════════════════════════════════════════════════════
+function cellXY(r,c){ return [GAP+c*(CELL+GAP), GAP+r*(CELL+GAP)]; }
+
+function drawGlow(cx,cy,radius,color){
+  const g=ctx.createRadialGradient(cx,cy,0,cx,cy,radius);
+  g.addColorStop(0,color); g.addColorStop(1,'transparent');
+  ctx.fillStyle=g; ctx.fillRect(cx-radius,cy-radius,radius*2,radius*2);
+}
+
+function drawAll(){
+  ctx.fillStyle=C.bg;
+  ctx.fillRect(0,0,W,H);
+  // grid lines
+  ctx.fillStyle=C.grid;
+  for(let r=0;r<=ROWS;r++) ctx.fillRect(0,r*(CELL+GAP),W,GAP);
+  for(let c=0;c<=COLS;c++) ctx.fillRect(c*(CELL+GAP),0,GAP,H);
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) drawCell(r,c);
+}
+
+function drawCell(r,c){
+  const [x,y]=cellXY(r,c);
+  const ck=k(r,c);
+  const isExit  = r===exitCell.r&&c===exitCell.c;
+  const isPlayer= r===player.r&&c===player.c;
+  const isAIB   = aiB&&r===aiB.r&&c===aiB.c;
+  const isAID   = aiD&&r===aiD.r&&c===aiD.c;
+
+  if(grid[r][c]===1){
+    // Wall with subtle gradient
+    const g=ctx.createLinearGradient(x,y,x+CELL,y+CELL);
+    g.addColorStop(0,'#1c3a1c'); g.addColorStop(1,'#142a14');
+    ctx.fillStyle=g; ctx.fillRect(x,y,CELL,CELL);
+    // moss texture dots
+    ctx.fillStyle='rgba(57,255,20,.04)';
+    for(let i=0;i<3;i++){
+      ctx.beginPath();
+      ctx.arc(x+4+i*8,y+CELL/2,2,0,Math.PI*2);
+      ctx.fill();
+    }
+    return;
+  }
+
+  // Path base
+  ctx.fillStyle=C.path; ctx.fillRect(x,y,CELL,CELL);
+
+  // Trails
+  if(playerTrail.some(t=>t.r===r&&t.c===c)){
+    ctx.fillStyle=C.trailP; ctx.fillRect(x,y,CELL,CELL);
+  }
+  if(aiB&&aiB.visited.has(ck)){
+    ctx.fillStyle=C.visitBFS; ctx.fillRect(x,y,CELL,CELL);
+  }
+  if(aiD&&aiD.visited.has(ck)){
+    ctx.fillStyle=C.visitDFS; ctx.fillRect(x,y,CELL,CELL);
+  }
+  if(aiB&&aiB.path.has(ck)){
+    ctx.fillStyle='rgba(0,229,255,.22)'; ctx.fillRect(x,y,CELL,CELL);
+  }
+  if(aiD&&aiD.path.has(ck)){
+    ctx.fillStyle='rgba(255,61,232,.22)'; ctx.fillRect(x,y,CELL,CELL);
+  }
+
+  const cx2=x+CELL/2, cy2=y+CELL/2;
+
+  // Exit
+  if(isExit){
+    ctx.fillStyle='#003311'; ctx.fillRect(x,y,CELL,CELL);
+    drawGlow(cx2,cy2,CELL,C.startGlow);
+    ctx.font=`${CELL-6}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🌟',cx2,cy2);
+    return;
+  }
+
+  // Coin
+  if(coins.has(ck)){
+    ctx.beginPath(); ctx.arc(cx2,cy2,CELL*.28,0,Math.PI*2);
+    ctx.fillStyle=C.coin; ctx.shadowColor=C.coinGlow; ctx.shadowBlur=8;
+    ctx.fill(); ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(255,255,255,.6)';
+    ctx.beginPath(); ctx.arc(cx2-2,cy2-2,CELL*.08,0,Math.PI*2); ctx.fill();
+  }
+
+  // Trap
+  if(traps.has(ck)){
+    ctx.font=`${CELL-4}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.shadowColor=C.trapGlow; ctx.shadowBlur=6;
+    ctx.fillText('💀',cx2,cy2); ctx.shadowBlur=0;
+  }
+
+  // AI BFS
+  if(isAIB && !isPlayer){
+    drawGlow(cx2,cy2,CELL,C.aiBFSGlow);
+    ctx.font=`${CELL-4}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🔵',cx2,cy2);
+  }
+  // AI DFS
+  if(isAID && !isPlayer){
+    drawGlow(cx2,cy2,CELL,C.aiDFSGlow);
+    ctx.font=`${CELL-4}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🟣',cx2,cy2);
+  }
+
+  // Player (on top)
+  if(isPlayer){
+    drawGlow(cx2,cy2,CELL,C.playerGlow);
+    ctx.font=`${CELL-2}px serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.fillText('🐸',cx2,cy2);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PARTICLES
+// ═══════════════════════════════════════════════════════════════════
+function spawnParticles(r,c,color,count=12){
+  const [x,y]=cellXY(r,c);
+  const cx=x+CELL/2, cy=y+CELL/2;
+  for(let i=0;i<count;i++){
+    const angle=Math.random()*Math.PI*2;
+    const speed=1+Math.random()*3;
+    particles.push({x:cx,y:cy,
+      vx:Math.cos(angle)*speed, vy:Math.sin(angle)*speed,
+      r:2+Math.random()*3, life:1, color});
+  }
+}
+
+let lastFx=0;
+function drawParticles(ts){
+  fxCtx.clearRect(0,0,W,H);
+  const dt=Math.min((ts-lastFx)/16,3); lastFx=ts;
+  for(let i=particles.length-1;i>=0;i--){
+    const p=particles[i];
+    p.x+=p.vx*dt; p.y+=p.vy*dt;
+    p.vy+=.08*dt; // gravity
+    p.life-=.04*dt;
+    if(p.life<=0){particles.splice(i,1);continue;}
+    fxCtx.globalAlpha=p.life;
+    fxCtx.fillStyle=p.color;
+    fxCtx.beginPath(); fxCtx.arc(p.x,p.y,p.r*p.life,0,Math.PI*2); fxCtx.fill();
+  }
+  fxCtx.globalAlpha=1;
+  if(particles.length) requestAnimationFrame(drawParticles);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// PLAYER
+// ═══════════════════════════════════════════════════════════════════
+function resetPlayer(){
+  player={r:1,c:1}; playerTrail=[];
+  moves=0; score=0; coinsCollected=0;
+  updateScoreUI();
+}
+
+function movePlayer(dr,dc){
+  if(!running) return;
+  const nr=player.r+dr, nc=player.c+dc;
+  if(nr<0||nr>=ROWS||nc<0||nc>=COLS||grid[nr][nc]===1) return;
+
+  const old={...player};
+  playerTrail.push({r:old.r,c:old.c});
+  if(playerTrail.length>12) playerTrail.shift();
+
+  player={r:nr,c:nc}; moves++;
+
+  const ck=k(nr,nc);
+
+  // Coin?
+  if(coins.has(ck)){
+    coins.delete(ck); coinsCollected++;
+    score+=10; updateScoreUI();
+    toast('🪙 +10!', '#ffd700');
+    sfxCoin();
+    spawnParticles(nr,nc,'#ffd700'); requestAnimationFrame(drawParticles);
+  }
+  // Trap?
+  if(traps.has(ck)){
+    score=Math.max(0,score-15); updateScoreUI();
+    toast('💀 -15!','#ff4444');
+    sfxTrap();
+    spawnParticles(nr,nc,'#ff4444',18); requestAnimationFrame(drawParticles);
+    // screen shake
+    canvas.style.animation='none';
+    requestAnimationFrame(()=>{canvas.style.animation='shake .3s';});
+  }
+  // Exit?
+  if(nr===exitCell.r&&nc===exitCell.c){
+    score += Math.round(timerLeft*2);
+    if(score>best){best=score; document.getElementById('sc-best').textContent=best;}
+    updateScoreUI();
+    sfxPathFound();
+    spawnParticles(nr,nc,'#39ff14',30); requestAnimationFrame(drawParticles);
+    showOverlay('🎉 YOU WIN!',`Score: ${score}  |  Moves: ${moves}  |  Coins: ${coinsCollected}`,'PLAY AGAIN',()=>startGame());
+    stopAll();
+    return;
+  }
+
+  drawCell(old.r,old.c);
+  // redraw trail cells
+  playerTrail.forEach(t=>drawCell(t.r,t.c));
+  drawCell(nr,nc);
+  updateScoreUI();
+}
+
+// Key controls
+document.addEventListener('keydown',e=>{
+  const map={'ArrowUp':[-1,0],'ArrowDown':[1,0],'ArrowLeft':[0,-1],'ArrowRight':[0,1],
+             'w':[-1,0],'s':[1,0],'a':[0,-1],'d':[0,1],
+             'W':[-1,0],'S':[1,0],'A':[0,-1],'D':[0,1]};
+  if(map[e.key]){ e.preventDefault(); movePlayer(...map[e.key]); }
+  if(e.key===' '){ e.preventDefault(); startGame(); }
+  if(e.key==='r'||e.key==='R'){ e.preventDefault(); generateMaze(); }
+});
+
+// Swipe support
+let touchStart=null;
+canvas.addEventListener('touchstart',e=>{ touchStart={x:e.touches[0].clientX,y:e.touches[0].clientY}; },{passive:true});
+canvas.addEventListener('touchend',e=>{
+  if(!touchStart||gameMode==='build') return;
+  const dx=e.changedTouches[0].clientX-touchStart.x;
+  const dy=e.changedTouches[0].clientY-touchStart.y;
+  if(Math.abs(dx)>Math.abs(dy)){
+    movePlayer(0,dx>0?1:-1);
+  } else {
+    movePlayer(dy>0?1:-1,0);
+  }
+  touchStart=null;
+},{passive:true});
+
+// Build mode click
+canvas.addEventListener('mousedown',e=>{
+  if(gameMode!=='build') return;
+  const rect=canvas.getBoundingClientRect();
+  const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+  const c2=Math.floor((e.offsetX*sx)/  (CELL+GAP));
+  const r2=Math.floor((e.offsetY*sy)/  (CELL+GAP));
+  if(r2<0||r2>=ROWS||c2<0||c2>=COLS) return;
+  // Don't wall off start/exit
+  if((r2===1&&c2===1)||(r2===exitCell.r&&c2===exitCell.c)) return;
+  buildDrag=1-grid[r2][c2];
+  grid[r2][c2]=buildDrag; drawCell(r2,c2);
+  sfxWall();
+});
+canvas.addEventListener('mousemove',e=>{
+  if(gameMode!=='build'||buildDrag===null) return;
+  const rect=canvas.getBoundingClientRect();
+  const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+  const c2=Math.floor((e.offsetX*sx)/(CELL+GAP));
+  const r2=Math.floor((e.offsetY*sy)/(CELL+GAP));
+  if(r2<0||r2>=ROWS||c2<0||c2>=COLS) return;
+  if((r2===1&&c2===1)||(r2===exitCell.r&&c2===exitCell.c)) return;
+  if(grid[r2][c2]!==buildDrag){grid[r2][c2]=buildDrag;drawCell(r2,c2);sfxWall();}
+});
+canvas.addEventListener('mouseup',()=>buildDrag=null);
+
+// ═══════════════════════════════════════════════════════════════════
+// AI AGENTS
+// ═══════════════════════════════════════════════════════════════════
+function makeAgent(type){
+  const parent=new Map();
+  const start=k(1,1);
+  parent.set(start,null);
+  const frontier=type==='bfs'?[start]:[start];
+  const visited=new Set(); const path=new Set();
+  return {r:1,c:1, type, parent, frontier, visited, path, done:false, won:false};
+}
+
+function stepAgent(ag){
+  if(ag.done||!ag.frontier.length) return;
+  const cur = ag.type==='bfs' ? ag.frontier.shift() : ag.frontier.pop();
+  const [r,c]=kr(cur);
+  ag.r=r; ag.c=c;
+  if(!(r===1&&c===1)) ag.visited.add(cur);
+
+  if(r===exitCell.r&&c===exitCell.c){
+    ag.done=true; ag.won=true;
+    // Reconstruct path
+    let node=cur;
+    while(node!==null){ ag.path.add(node); node=ag.parent.get(node); }
+    return;
+  }
+  for(const [dr,dc] of [[-1,0],[1,0],[0,-1],[0,1]]){
+    const nr=r+dr,nc=c+dc,nk=k(nr,nc);
+    if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&!ag.parent.has(nk)&&grid[nr][nc]===0){
+      ag.parent.set(nk,cur); ag.frontier.push(nk);
+    }
+  }
+}
+
+function runAI(){
+  if(!running) return;
+  const spd=document.getElementById('speed').value;
+  const delay=Math.max(1,115-spd);
+
+  let anyAlive=false;
+  if(aiB&&!aiB.done){ stepAgent(aiB); anyAlive=true; }
+  if(aiD&&!aiD.done){ stepAgent(aiD); anyAlive=true; }
+  if(anyAlive) sfxAIMove();
+
+  drawAll();
+
+  // AI wins race?
+  if(gameMode==='race'){
+    const winner = (aiB&&aiB.won) ? 'BFS AI 🔵' : (aiD&&aiD.won) ? 'DFS AI 🟣' : null;
+    if(winner){
+      sfxPathFound();
+      spawnParticles(exitCell.r,exitCell.c,'#00e5ff',25);
+      requestAnimationFrame(drawParticles);
+      showOverlay('🤖 AI WINS!',`${winner} beat you to the exit!<br>Keep practising!`,'TRY AGAIN',()=>startGame());
+      stopAll(); return;
+    }
+  }
+
+  if(anyAlive) animTimer=setTimeout(runAI,delay);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// GAME CONTROL
+// ═══════════════════════════════════════════════════════════════════
+function startGame(){
+  hideOverlay();
+  stopAll();
+  if(!grid.length||grid.every(r=>r.every(v=>v===1))) generateMaze();
+  else { spawnItems(); }
+  resetPlayer();
+  running=true;
+
+  // Timer
+  timerMax = diff==='easy'?90:diff==='medium'?60:40;
+  timerLeft=timerMax;
+  updateTimer();
+  timerInterval=setInterval(()=>{
+    timerLeft--;
+    updateTimer();
+    if(timerLeft<=0){
+      sfxTimeUp();
+      showOverlay('⏰ TIME UP!',`Score: ${score}  |  Coins: ${coinsCollected}`,'TRY AGAIN',()=>startGame());
+      stopAll();
+    }
+  },1000);
+
+  // AI
+  aiB=null; aiD=null; _aiStepCount=0;
+  if(gameMode==='race'){
+    if(algo==='bfs'||algo==='both') aiB=makeAgent('bfs');
+    if(algo==='dfs'||algo==='both') aiD=makeAgent('dfs');
+    runAI();
+  }
+
+  canvas.style.cursor = gameMode==='build'?'crosshair':'default';
+  setStatus(gameMode==='play' ?'🐸 Find the 🌟 exit!' :
+            gameMode==='build'?'🔨 Click/drag to build walls' :
+                               '🏁 Race to the exit before the AI!','');
+  drawAll();
+}
+
+function stopAll(){
+  running=false;
+  clearInterval(timerInterval); timerInterval=null;
+  clearTimeout(animTimer);  animTimer=null;
+  clearTimeout(animTimer2); animTimer2=null;
+}
+
+function resetPlayer2(){
+  player={r:1,c:1}; playerTrail=[];
+  moves=0; score=0; coinsCollected=0; updateScoreUI();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════════
+function setMode(m){
+  gameMode=m;
+  ['play','build','race'].forEach(id=>{
+    document.getElementById('tab-'+id).classList.toggle('active',id===m);
+  });
+  document.getElementById('algo-section').style.display  = m==='race'?'block':'none';
+  document.getElementById('speed-section').style.display = m==='race'?'block':'none';
+}
+
+function setAlgo(a){
+  algo=a;
+  ['bfs','dfs','both'].forEach(id=>{
+    const btn=document.getElementById('atab-'+id);
+    btn.className='algo-tab';
+    if(id===a) btn.classList.add('active-'+  (a==='both'?'bfs':a));
+  });
+}
+
+function setDiff(d){
+  diff=d;
+  ['easy','medium','hard'].forEach(id=>{
+    document.getElementById('diff-'+id).classList.toggle('active',id===d);
+  });
+}
+
+function updateScoreUI(){
+  document.getElementById('sc-score').textContent=score;
+  document.getElementById('sc-best').textContent=best;
+  document.getElementById('sc-moves').textContent=moves;
+  document.getElementById('sc-coins').textContent=coinsCollected;
+}
+
+function updateTimer(){
+  const pct=timerLeft/timerMax;
+  document.getElementById('timer-text').textContent=`⏱ ${timerLeft}s`;
+  document.getElementById('timer-bar').style.width=(pct*100)+'%';
+  const color = pct>.5?'linear-gradient(90deg,#39ff14,#ffe500)':
+                pct>.25?'linear-gradient(90deg,#ffe500,#ff8c00)':
+                        'linear-gradient(90deg,#ff4444,#ff8c00)';
+  document.getElementById('timer-bar').style.background=color;
+}
+
+function setStatus(msg){ /* absorbed into overlay/toast */ }
+
+let toastTimer=null;
+function toast(msg,color='#ffe500'){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.style.background=color;
+  t.style.color=color==='#ff4444'?'#fff':'#000';
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),1200);
+}
+
+let overlayCallback=null;
+function showOverlay(title,sub,btnText,cb){
+  document.getElementById('overlay-title').textContent=title;
+  document.getElementById('overlay-sub').innerHTML=sub;
+  document.getElementById('overlay-btn').textContent=btnText;
+  overlayCallback=cb;
+  document.getElementById('overlay').classList.add('show');
+}
+function hideOverlay(){ document.getElementById('overlay').classList.remove('show'); }
+document.getElementById('overlay-btn').addEventListener('click',()=>{
+  hideOverlay(); if(overlayCallback) overlayCallback();
+});
+
+// ═══════════════════════════════════════════════════════════════════
+// FLOATING LEAVES (decoration)
+// ═══════════════════════════════════════════════════════════════════
+(function spawnLeaves(){
+  const wrap=document.getElementById('canvas-wrap');
+  const emojis=['🍃','🌿','🍀','🌱','🍂'];
+  for(let i=0;i<8;i++){
+    const el=document.createElement('div');
+    el.className='leaf';
+    el.textContent=emojis[i%emojis.length];
+    el.style.left=Math.random()*100+'%';
+    el.style.animationDuration=(12+Math.random()*18)+'s';
+    el.style.animationDelay=(-Math.random()*20)+'s';
+    el.style.fontSize=(14+Math.random()*14)+'px';
+    wrap.appendChild(el);
+  }
+})();
+
+// Shake keyframe
+const style=document.createElement('style');
+style.textContent=`@keyframes shake{0%,100%{transform:translate(0)}25%{transform:translate(-4px,2px)}50%{transform:translate(4px,-2px)}75%{transform:translate(-3px,3px)}}`;
+document.head.appendChild(style);
+
+// ═══════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════
+window.addEventListener('resize', resizeCanvases);
+resizeCanvases();
+setMode('play');
+setAlgo('bfs');
+setDiff('easy');
+generateMaze();
+updateScoreUI();
+updateTimer();
+</script>
+</body>
+</html>
